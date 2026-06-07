@@ -21,9 +21,9 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-      - uses: github/codeql-action/init@78ed0c7291d93e40c51b085850dc669a4c3ab73b # v3
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - uses: github/codeql-action/init@1a818fd5f97ed0ee9a823421bd5b171add01227f # v4.36.2
         with:
           languages: go
-      - uses: github/codeql-action/autobuild@78ed0c7291d93e40c51b085850dc669a4c3ab73b # v3
-      - uses: github/codeql-action/analyze@78ed0c7291d93e40c51b085850dc669a4c3ab73b # v3
+      - uses: github/codeql-action/autobuild@1a818fd5f97ed0ee9a823421bd5b171add01227f # v4.36.2
+      - uses: github/codeql-action/analyze@1a818fd5f97ed0ee9a823421bd5b171add01227f # v4.36.2

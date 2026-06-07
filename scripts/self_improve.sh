@@ -28,6 +28,11 @@ run_checks() {
     bash -n scripts/*.sh
 }
 
+run_agent() {
+  # shellcheck disable=SC2086
+  ${SHELL:-bash} -c "${AGENT_REPAIR_COMMAND} < '${PROMPT_FILE}'"
+}
+
 write_prompt() {
   local round="$1"
   {
@@ -70,20 +75,38 @@ write_prompt() {
 }
 
 for round in $(seq 1 "${MAX_ROUNDS}"); do
+  baseline_green="false"
   if run_checks >"${FAILURE_LOG}" 2>&1; then
-    write_prompt "${round}"
-  else
-    write_prompt "${round}"
+    baseline_green="true"
   fi
+
+  write_prompt "${round}"
 
   if [[ -z "${AGENT_REPAIR_COMMAND}" ]]; then
     echo "No AGENT_REPAIR_COMMAND configured and OPENAI_API_KEY is not available." >&2
-    echo "Set AGENT_REPAIR_COMMAND or OPENAI_API_KEY for autonomous self-improvement." >&2
+    if [[ "${baseline_green}" == "true" ]]; then
+      echo "Baseline checks are green, so the self-improvement pass is skipped."
+      cat "${FAILURE_LOG}"
+      exit 0
+    fi
+    echo "Set AGENT_REPAIR_COMMAND or OPENAI_API_KEY to repair failing self-improvement checks." >&2
     exit 1
   fi
 
-  # shellcheck disable=SC2086
-  ${SHELL:-bash} -c "${AGENT_REPAIR_COMMAND} < '${PROMPT_FILE}'"
+  set +e
+  run_agent
+  agent_status=$?
+  set -e
+  if [[ "${agent_status}" -ne 0 ]]; then
+    if [[ "${baseline_green}" == "true" ]] && git diff --quiet -- . ':!tools/agent-runtime/node_modules'; then
+      echo "Self-improvement agent exited ${agent_status}, but baseline checks are green and no repository changes were produced."
+      echo "Treating this as a skipped improvement pass instead of a broken provider build."
+      cat "${FAILURE_LOG}"
+      exit 0
+    fi
+    echo "Self-improvement agent failed while checks were failing or repository changes exist." >&2
+    exit "${agent_status}"
+  fi
 
   if run_checks >"${FAILURE_LOG}" 2>&1; then
     cat "${FAILURE_LOG}"

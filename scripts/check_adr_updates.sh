@@ -30,6 +30,13 @@ if [[ -z "${changed_files}" ]]; then
   exit 0
 fi
 
+if [[ "${GITHUB_HEAD_REF:-}" == dependabot/* ]]; then
+  if ! printf '%s\n' "${changed_files}" |
+    grep -Ev '^(go\.mod|go\.sum|tools/agent-runtime/package(-lock)?\.json|\.github/workflows/[^/]+\.ya?ml)$' >/dev/null; then
+    exit 0
+  fi
+fi
+
 if printf '%s\n' "${changed_files}" | grep -q '^docs/adr/'; then
   exit 0
 fi

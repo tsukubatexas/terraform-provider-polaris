@@ -21,7 +21,7 @@ Add open source and security hardening:
 - Add Dependency Review for pull requests.
 - Add `.editorconfig` and `.gitattributes` for consistent public contributions.
 - Document the hardening model in `docs/security-hardening.md`.
-- Upgrade the vulnerable transitive `google.golang.org/grpc` dependency to a patched release and move CI containers to Go 1.24.
+- Upgrade the vulnerable transitive `google.golang.org/grpc` dependency to a patched release and move CI containers to a supported Go baseline. ADR 0016 later moves maintenance builds to Go 1.25.8+ compatible tooling.
 - Keep the CI-installed Actionlint version compatible with the Go toolchain used in container jobs.
 - Keep workflow-level permissions read-only so OpenSSF Scorecard can verify and publish results.
 - Install container package prerequisites before actions that need them, such as Terraform setup requiring `unzip`.

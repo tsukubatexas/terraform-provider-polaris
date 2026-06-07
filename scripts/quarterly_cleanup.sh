@@ -101,6 +101,11 @@ write_prompt() {
   } >"${PROMPT_FILE}"
 }
 
+run_agent() {
+  # shellcheck disable=SC2086
+  ${SHELL:-bash} -c "${AGENT_REPAIR_COMMAND} < '${PROMPT_FILE}'"
+}
+
 if [[ -z "${AGENT_REPAIR_COMMAND}" ]]; then
   echo "No agent configured; running deterministic quarterly cleanup checks only."
   run_checks
@@ -108,11 +113,28 @@ if [[ -z "${AGENT_REPAIR_COMMAND}" ]]; then
 fi
 
 for round in $(seq 1 "${MAX_ROUNDS}"); do
+  baseline_green="false"
+  if run_checks >"${FAILURE_LOG}" 2>&1; then
+    baseline_green="true"
+  fi
+
   write_prompt "${round}" "quarterly cleanup"
 
   echo "== Quarterly cleanup round ${round}/${MAX_ROUNDS}: running cleanup agent =="
-  # shellcheck disable=SC2086
-  ${SHELL:-bash} -c "${AGENT_REPAIR_COMMAND} < '${PROMPT_FILE}'"
+  set +e
+  run_agent
+  agent_status=$?
+  set -e
+  if [[ "${agent_status}" -ne 0 ]]; then
+    if [[ "${baseline_green}" == "true" ]] && git diff --quiet -- . ':!tools/agent-runtime/node_modules'; then
+      echo "Quarterly cleanup agent exited ${agent_status}, but baseline checks are green and no repository changes were produced."
+      echo "Treating this as a skipped cleanup pass instead of a broken maintenance build."
+      cat "${FAILURE_LOG}"
+      exit 0
+    fi
+    echo "Quarterly cleanup agent failed while checks were failing or repository changes exist." >&2
+    exit "${agent_status}"
+  fi
 
   echo "== Quarterly cleanup round ${round}/${MAX_ROUNDS}: checks =="
   if run_checks >"${FAILURE_LOG}" 2>&1; then
