@@ -22,3 +22,4 @@ Every ADR should explain the context, the decision, and the consequences. If an 
 | [0014](0014-validate-openapi-registry-completeness.md) | Validate OpenAPI Registry Completeness | Accepted |
 | [0015](0015-publish-registry-ready-release-assets.md) | Publish Registry-Ready Release Assets | Accepted |
 | [0016](0016-harden-autonomous-maintenance-toolchain.md) | Harden Autonomous Maintenance Toolchain | Accepted |
+| [0017](0017-pin-agent-runtime-and-test-operation-merging.md) | Pin Agent Runtime and Test Operation Merging | Accepted |

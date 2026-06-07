@@ -99,15 +99,7 @@ func main() {
 
 		specOps, err := parseSpec(source.Path, body)
 		must(err)
-		for _, op := range specOps {
-			if existing, ok := ops[op.ID]; ok {
-				op.ID = stableOperationID(op.Spec, op.Method, op.Path)
-				if _, ok := ops[op.ID]; ok {
-					die("duplicate operation id %q from %s and %s", op.ID, existing.Spec, op.Spec)
-				}
-			}
-			ops[op.ID] = op
-		}
+		must(mergeOperations(ops, specOps))
 	}
 
 	must(writeOperations(*out, tag, ops))
@@ -252,6 +244,20 @@ func stableOperationID(parts ...string) string {
 	joined := strings.Join(parts, "_")
 	re := regexp.MustCompile(`[^A-Za-z0-9]+`)
 	return strings.Trim(re.ReplaceAllString(joined, "_"), "_")
+}
+
+func mergeOperations(dst map[string]generatedOperation, src []generatedOperation) error {
+	for _, op := range src {
+		if _, ok := dst[op.ID]; ok {
+			fallbackID := stableOperationID(op.Spec, op.Method, op.Path)
+			op.ID = fallbackID
+			if existing, ok := dst[fallbackID]; ok {
+				return fmt.Errorf("duplicate operation id %q from %s and %s", fallbackID, existing.Spec, op.Spec)
+			}
+		}
+		dst[op.ID] = op
+	}
+	return nil
 }
 
 func writeOperations(filename string, tag string, ops map[string]generatedOperation) error {

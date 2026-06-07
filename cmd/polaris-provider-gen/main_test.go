@@ -198,6 +198,50 @@ func TestDoHTTPRequestsRetriesTransientStatus(t *testing.T) {
 	}
 }
 
+func TestMergeOperationsResolvesDuplicateOperationIDs(t *testing.T) {
+	dst := map[string]generatedOperation{
+		"dup": {ID: "dup", Spec: "spec/a.yaml", Method: "GET", Path: "/a"},
+	}
+	src := []generatedOperation{
+		{ID: "dup", Spec: "spec/b.yaml", Method: "GET", Path: "/b"},
+	}
+
+	if err := mergeOperations(dst, src); err != nil {
+		t.Fatalf("mergeOperations: %v", err)
+	}
+
+	if _, ok := dst["dup"]; !ok {
+		t.Fatalf("expected original operation to remain under dup")
+	}
+	fallbackID := stableOperationID("spec/b.yaml", "GET", "/b")
+	got, ok := dst[fallbackID]
+	if !ok {
+		t.Fatalf("expected duplicate operation to be merged under %q", fallbackID)
+	}
+	if got.ID != fallbackID {
+		t.Fatalf("operation ID got %q want %q", got.ID, fallbackID)
+	}
+	if got.Spec != "spec/b.yaml" {
+		t.Fatalf("operation spec got %q", got.Spec)
+	}
+}
+
+func TestMergeOperationsErrorsWhenFallbackIDAlsoCollides(t *testing.T) {
+	stableID := stableOperationID("spec/test.yaml", "GET", "/a")
+	dst := map[string]generatedOperation{
+		"dup":       {ID: "dup", Spec: "spec/one.yaml", Method: "GET", Path: "/one"},
+		stableID:    {ID: stableID, Spec: "spec/existing.yaml", Method: "GET", Path: "/existing"},
+		"unrelated": {ID: "unrelated", Spec: "spec/other.yaml", Method: "GET", Path: "/other"},
+	}
+	src := []generatedOperation{
+		{ID: "dup", Spec: "spec/test.yaml", Method: "GET", Path: "/a"},
+	}
+
+	if err := mergeOperations(dst, src); err == nil {
+		t.Fatalf("expected mergeOperations to error due to fallback collision")
+	}
+}
+
 func TestGeneratedRegistryMatchesCachedOpenAPISpecs(t *testing.T) {
 	root := repoRoot(t)
 	tag := generated.ReleaseTag

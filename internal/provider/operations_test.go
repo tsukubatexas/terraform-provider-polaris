@@ -114,6 +114,25 @@ func TestSafeHTTPBodyTruncates(t *testing.T) {
 	}
 }
 
+func TestGeneratedOpenAPIOperationsAreWellFormed(t *testing.T) {
+	for id, op := range generated.Operations {
+		if id != op.ID {
+			t.Fatalf("operation map key %q does not match operation ID %q", id, op.ID)
+		}
+		if op.Spec == "" {
+			t.Fatalf("operation %q has empty spec", op.ID)
+		}
+		if op.Path == "" || !strings.HasPrefix(op.Path, "/") {
+			t.Fatalf("operation %q has invalid path %q", op.ID, op.Path)
+		}
+		switch op.Method {
+		case http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+		default:
+			t.Fatalf("operation %q has unsupported method %q", op.ID, op.Method)
+		}
+	}
+}
+
 func dummyPathParams(pathTemplate string) map[string]string {
 	params := map[string]string{}
 	for _, match := range testPathParamPattern.FindAllStringSubmatch(pathTemplate, -1) {
