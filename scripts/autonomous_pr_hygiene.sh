@@ -7,10 +7,23 @@ failed_days="${PR_HYGIENE_FAILED_DAYS:-3}"
 dry_run="${PR_HYGIENE_DRY_RUN:-false}"
 now_epoch="${PR_HYGIENE_NOW_EPOCH:-$(date -u +%s)}"
 
+require_uint() {
+  local name="$1"
+  local value="$2"
+  if [[ ! "${value}" =~ ^[0-9]+$ ]]; then
+    echo "${name} must be a non-negative integer; got '${value}'." >&2
+    exit 1
+  fi
+}
+
 if [[ -z "${repo}" ]]; then
   echo "PR_HYGIENE_REPO or GITHUB_REPOSITORY is required." >&2
   exit 1
 fi
+
+require_uint "PR_HYGIENE_STALE_DAYS" "${stale_days}"
+require_uint "PR_HYGIENE_FAILED_DAYS" "${failed_days}"
+require_uint "PR_HYGIENE_NOW_EPOCH" "${now_epoch}"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required." >&2
@@ -37,11 +50,8 @@ else
   )"
 fi
 
-candidate_json="$(
-  jq -c \
-    --argjson now "${now_epoch}" \
-    --argjson stale_days "${stale_days}" \
-    '
+prepared_json="$(
+  jq -c '
     def bot_author:
       ((.author.login // "") | test("\\[bot\\]$"));
 
@@ -56,15 +66,20 @@ candidate_json="$(
       else .headRefName
       end;
 
-    def prepared:
-      map(select(autonomous) | . + {
-        family: family,
-        updatedEpoch: (.updatedAt | fromdateiso8601)
-      });
+    map(select(autonomous) | . + {
+      family: family,
+      updatedEpoch: (.updatedAt | fromdateiso8601)
+    })
+  ' <<<"${prs_json}"
+)"
 
+candidate_json="$(
+  jq -c \
+    --argjson now "${now_epoch}" \
+    --argjson stale_days "${stale_days}" \
+    '
     def stale_candidates:
-      prepared
-      | map(select(($now - .updatedEpoch) >= ($stale_days * 86400))
+      map(select(($now - .updatedEpoch) >= ($stale_days * 86400))
       | {
           number,
           headRefName,
@@ -72,8 +87,7 @@ candidate_json="$(
         });
 
     def duplicate_candidates:
-      prepared
-      | group_by(.family)
+      group_by(.family)
       | map(sort_by(.updatedEpoch) | reverse | .[1:][])
       | flatten
       | map({
@@ -85,21 +99,13 @@ candidate_json="$(
     [stale_candidates, duplicate_candidates]
     | flatten
     | unique_by(.number)
-    ' <<<"${prs_json}"
+    ' <<<"${prepared_json}"
 )"
 
 failed_json="[]"
 if [[ -z "${PR_HYGIENE_FIXTURE:-}" ]]; then
   autonomous_numbers="$(
-    jq -r '
-      def bot_author:
-        ((.author.login // "") | test("\\[bot\\]$"));
-
-      .[]
-      | select((.headRefName | test("^(agentic/|dependabot/|release-please--branches--)"))
-        or (bot_author and ([.labels[]?.name] | any(. == "agentic" or . == "dependencies" or . == "autorelease: pending"))))
-      | [.number, .updatedAt, .headRefName] | @tsv
-    ' <<<"${prs_json}"
+    jq -r '.[] | [.number, .updatedAt, .headRefName] | @tsv' <<<"${prepared_json}"
   )"
 
   failed_lines=()

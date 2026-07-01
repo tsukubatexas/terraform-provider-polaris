@@ -21,3 +21,4 @@ Every ADR should explain the context, the decision, and the consequences. If an 
 | [0013](0013-auto-merge-release-please-prs.md) | Auto-Merge Release Please PRs Through a Hardened Queue | Accepted |
 | [0014](0014-validate-openapi-registry-completeness.md) | Validate OpenAPI Registry Completeness | Accepted |
 | [0015](0015-publish-registry-ready-release-assets.md) | Publish Registry-Ready Release Assets | Accepted |
+| [0016](0016-harden-autonomous-pr-hygiene-selection.md) | Harden Autonomous PR Hygiene Selection | Accepted |
