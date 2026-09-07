@@ -35,12 +35,14 @@ func restResource() *schema.Resource {
 			"query_params": {
 				Type:        schema.TypeMap,
 				Optional:    true,
+				Sensitive:   true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "Query string parameters.",
 			},
 			"headers": {
 				Type:        schema.TypeMap,
 				Optional:    true,
+				Sensitive:   true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "Additional HTTP headers.",
 			},
