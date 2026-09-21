@@ -7,6 +7,8 @@ cd "${ROOT_DIR}"
 SMOKE_LOG=".agent/smoke-self-improve-loop.log"
 mkdir -p .agent
 
+bash scripts/check_agent_runtime_pinned.sh
+
 AGENT_MAX_ROUNDS=1 \
 AGENT_REPAIR_COMMAND="echo fake-self-improve-agent-ran > .agent/fake-self-improve-agent.txt" \
   scripts/self_improve.sh | tee "${SMOKE_LOG}"
