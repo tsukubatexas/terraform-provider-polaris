@@ -11,7 +11,7 @@ type Operation struct {
 	Tags    []string
 }
 
-var ReleaseTag = "apache-polaris-1.5.0"
+var ReleaseTag = "apache-polaris-1.7.0"
 
 var GeneratedAt = "reproducible"
 
@@ -72,6 +72,7 @@ var Operations = map[string]Operation{
 	"loadView":                                 {ID: "loadView", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "GET", Path: "/v1/{prefix}/namespaces/{namespace}/views/{view}", Summary: "Load a view from the catalog", Tags: []string{"Catalog API"}},
 	"planTableScan":                            {ID: "planTableScan", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan", Summary: "Submit a scan for planning", Tags: []string{"Catalog API"}},
 	"registerTable":                            {ID: "registerTable", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/register", Summary: "Register a table in the given namespace using given metadata file location", Tags: []string{"Catalog API"}},
+	"registerView":                             {ID: "registerView", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/register-view", Summary: "Register a view in the catalog", Tags: []string{"Catalog API"}},
 	"renameTable":                              {ID: "renameTable", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/tables/rename", Summary: "Rename a table from its current name to a new name", Tags: []string{"Catalog API"}},
 	"renameView":                               {ID: "renameView", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/views/rename", Summary: "Rename a view from its current name to a new name", Tags: []string{"Catalog API"}},
 	"replaceView":                              {ID: "replaceView", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/views/{view}", Summary: "Replace a view", Tags: []string{"Catalog API"}},
@@ -82,6 +83,7 @@ var Operations = map[string]Operation{
 	"revokePrincipalRole":                      {ID: "revokePrincipalRole", Spec: "spec/polaris-management-service.yml", Method: "DELETE", Path: "/principals/{principalName}/principal-roles/{principalRoleName}", Summary: "", Tags: []string(nil)},
 	"rotateCredentials":                        {ID: "rotateCredentials", Spec: "spec/polaris-management-service.yml", Method: "POST", Path: "/principals/{principalName}/rotate", Summary: "", Tags: []string(nil)},
 	"sendNotification":                         {ID: "sendNotification", Spec: "spec/polaris-catalog-apis/notifications-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/tables/{table}/notifications", Summary: "Sends a notification to the table", Tags: []string{"Catalog API"}},
+	"signRequest":                              {ID: "signRequest", Spec: "spec/iceberg-rest-catalog-open-api.yaml", Method: "POST", Path: "/v1/{prefix}/namespaces/{namespace}/tables/{table}/sign", Summary: "Remotely signs requests to object storage", Tags: []string{"Catalog API"}},
 	"spec_polaris_catalog_apis_oauth_tokens_api_yaml_POST_v1_oauth_tokens": {ID: "spec_polaris_catalog_apis_oauth_tokens_api_yaml_POST_v1_oauth_tokens", Spec: "spec/polaris-catalog-apis/oauth-tokens-api.yaml", Method: "POST", Path: "/v1/oauth/tokens", Summary: "Get a token using an OAuth2 flow (DEPRECATED for REMOVAL)", Tags: []string{"OAuth2 API"}},
 	"updateCatalog":       {ID: "updateCatalog", Spec: "spec/polaris-management-service.yml", Method: "PUT", Path: "/catalogs/{catalogName}", Summary: "", Tags: []string(nil)},
 	"updateCatalogRole":   {ID: "updateCatalogRole", Spec: "spec/polaris-management-service.yml", Method: "PUT", Path: "/catalogs/{catalogName}/catalog-roles/{catalogRoleName}", Summary: "", Tags: []string(nil)},
