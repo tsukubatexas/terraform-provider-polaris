@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"go/format"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -195,6 +197,131 @@ func TestDoHTTPRequestsRetriesTransientStatus(t *testing.T) {
 	}
 	if attempts != 2 {
 		t.Fatalf("attempts got %d want 2", attempts)
+	}
+}
+
+func TestLatestReleaseUsesConfigurableGitHubAPIBaseURL(t *testing.T) {
+	oldClient := httpClient
+	oldRetryDelays := httpRetryDelays
+	oldBase := os.Getenv("POLARIS_GITHUB_API_BASE_URL")
+	oldToken := os.Getenv("GITHUB_TOKEN")
+	t.Cleanup(func() {
+		httpClient = oldClient
+		httpRetryDelays = oldRetryDelays
+		_ = os.Setenv("POLARIS_GITHUB_API_BASE_URL", oldBase)
+		_ = os.Setenv("GITHUB_TOKEN", oldToken)
+	})
+
+	var gotAuth string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/repos/apache/polaris/releases/latest" {
+			t.Fatalf("path got %q", r.URL.Path)
+		}
+		if got := r.Header.Get("Accept"); got != "application/vnd.github+json" {
+			t.Fatalf("accept got %q", got)
+		}
+		if got := r.Header.Get("User-Agent"); got != "terraform-provider-polaris-generator" {
+			t.Fatalf("user-agent got %q", got)
+		}
+		gotAuth = r.Header.Get("Authorization")
+		_ = json.NewEncoder(w).Encode(releaseResponse{TagName: "apache-polaris-test"})
+	}))
+	t.Cleanup(server.Close)
+
+	httpClient = server.Client()
+	httpRetryDelays = []time.Duration{0}
+	_ = os.Setenv("POLARIS_GITHUB_API_BASE_URL", server.URL)
+	_ = os.Setenv("GITHUB_TOKEN", "test-token")
+
+	release, err := latestRelease()
+	if err != nil {
+		t.Fatalf("latestRelease: %v", err)
+	}
+	if release.TagName != "apache-polaris-test" {
+		t.Fatalf("tag got %q", release.TagName)
+	}
+	if gotAuth != "Bearer test-token" {
+		t.Fatalf("authorization got %q", gotAuth)
+	}
+}
+
+func TestFetchSpecUsesConfigurableSpecBaseURL(t *testing.T) {
+	oldClient := httpClient
+	oldRetryDelays := httpRetryDelays
+	oldBase := os.Getenv("POLARIS_SPEC_BASE_URL")
+	t.Cleanup(func() {
+		httpClient = oldClient
+		httpRetryDelays = oldRetryDelays
+		_ = os.Setenv("POLARIS_SPEC_BASE_URL", oldBase)
+	})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/apache-polaris-test/spec/required.yml":
+			_, _ = w.Write([]byte("required"))
+		case "/apache-polaris-test/spec/optional.yml":
+			http.NotFound(w, r)
+		default:
+			t.Fatalf("unexpected spec path %q", r.URL.Path)
+		}
+	}))
+	t.Cleanup(server.Close)
+
+	httpClient = server.Client()
+	httpRetryDelays = []time.Duration{0}
+	_ = os.Setenv("POLARIS_SPEC_BASE_URL", server.URL)
+
+	body, ok, err := fetchSpec("apache-polaris-test", specSource{Path: "spec/required.yml", Required: true})
+	if err != nil {
+		t.Fatalf("fetch required: %v", err)
+	}
+	if !ok || string(body) != "required" {
+		t.Fatalf("required got ok=%v body=%q", ok, string(body))
+	}
+
+	body, ok, err = fetchSpec("apache-polaris-test", specSource{Path: "spec/optional.yml", Required: false})
+	if err != nil {
+		t.Fatalf("fetch optional: %v", err)
+	}
+	if ok || body != nil {
+		t.Fatalf("optional got ok=%v body=%v", ok, body)
+	}
+}
+
+func TestMarkdownCellEscapesTableSeparators(t *testing.T) {
+	got := markdownCell(" a|b\nc ")
+	want := "a\\|b c"
+	if got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestWriteOperationsProducesDeterministicFormattedGo(t *testing.T) {
+	tmp := t.TempDir()
+	filename := filepath.Join(tmp, "operations_gen.go")
+	ops := map[string]generatedOperation{
+		"z": {ID: "z", Spec: "spec/z.yml", Method: "GET", Path: "/z"},
+		"a": {ID: "a", Spec: "spec/a.yml", Method: "POST", Path: "/a"},
+	}
+	if err := writeOperations(filename, "apache-polaris-test", ops); err != nil {
+		t.Fatalf("writeOperations: %v", err)
+	}
+	body, err := os.ReadFile(filename)
+	if err != nil {
+		t.Fatalf("read operations: %v", err)
+	}
+	text := string(body)
+	if !strings.Contains(text, "package generated") {
+		t.Fatalf("missing package line:\n%s", text)
+	}
+	if strings.Index(text, "\"a\":") == -1 || strings.Index(text, "\"z\":") == -1 {
+		t.Fatalf("missing expected map entries:\n%s", text)
+	}
+	if strings.Index(text, "\"a\":") > strings.Index(text, "\"z\":") {
+		t.Fatalf("map entries not sorted by key:\n%s", text)
+	}
+	if _, err := format.Source(body); err != nil {
+		t.Fatalf("generated file is not gofmt-compatible: %v\n%s", err, text)
 	}
 }
 
