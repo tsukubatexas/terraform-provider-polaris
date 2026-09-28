@@ -121,7 +121,7 @@ func main() {
 }
 
 func latestRelease() (*releaseResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/repos/apache/polaris/releases/latest", nil)
+	req, err := http.NewRequest(http.MethodGet, githubAPIBaseURL()+"/repos/apache/polaris/releases/latest", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func latestRelease() (*releaseResponse, error) {
 }
 
 func fetchSpec(tag string, source specSource) ([]byte, bool, error) {
-	specURL := fmt.Sprintf("https://raw.githubusercontent.com/apache/polaris/%s/%s", tag, source.Path)
+	specURL := fmt.Sprintf("%s/%s/%s", specBaseURL(), tag, source.Path)
 	req, err := http.NewRequest(http.MethodGet, specURL, nil)
 	if err != nil {
 		return nil, false, err
@@ -170,6 +170,20 @@ func fetchSpec(tag string, source specSource) ([]byte, bool, error) {
 	}
 	body, err := io.ReadAll(resp.Body)
 	return body, true, err
+}
+
+func githubAPIBaseURL() string {
+	if base := strings.TrimRight(os.Getenv("POLARIS_GITHUB_API_BASE_URL"), "/"); base != "" {
+		return base
+	}
+	return "https://api.github.com"
+}
+
+func specBaseURL() string {
+	if base := strings.TrimRight(os.Getenv("POLARIS_SPEC_BASE_URL"), "/"); base != "" {
+		return base
+	}
+	return "https://raw.githubusercontent.com/apache/polaris"
 }
 
 func doHTTPRequest(req *http.Request) (*http.Response, error) {
