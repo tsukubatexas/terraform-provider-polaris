@@ -76,8 +76,10 @@ terraform -chdir="${TEST_DIR}" init -input=false
 terraform -chdir="${TEST_DIR}" apply -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
   -var "realm=${REALM}" \
-  -var "token=${TOKEN}"
+  -var "token=${TOKEN}" \
+  -var "catalog_name=${TEST_CATALOG_NAME}"
 terraform -chdir="${TEST_DIR}" destroy -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
   -var "realm=${REALM}" \
-  -var "token=${TOKEN}"
+  -var "token=${TOKEN}" \
+  -var "catalog_name=${TEST_CATALOG_NAME}"
