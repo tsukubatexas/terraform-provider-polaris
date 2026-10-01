@@ -5,10 +5,15 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 ENDPOINT="${POLARIS_ENDPOINT:-http://localhost:8181/api/management/v1}"
-MANAGEMENT_SEGMENT="/api/management"
-CATALOG_SEGMENT="/api/catalog"
-DEFAULT_CATALOG_ENDPOINT="${ENDPOINT/${MANAGEMENT_SEGMENT}/${CATALOG_SEGMENT}}"
+ENDPOINT="${ENDPOINT%/}"
+DEFAULT_CATALOG_ENDPOINT="${ENDPOINT}"
+if [[ "${ENDPOINT}" == *"/api/management/v1" ]]; then
+  DEFAULT_CATALOG_ENDPOINT="${ENDPOINT%/api/management/v1}/api/catalog"
+elif [[ "${ENDPOINT}" == *"/api/management" ]]; then
+  DEFAULT_CATALOG_ENDPOINT="${ENDPOINT%/api/management}/api/catalog"
+fi
 CATALOG_ENDPOINT="${POLARIS_CATALOG_ENDPOINT:-${DEFAULT_CATALOG_ENDPOINT}}"
+CATALOG_ENDPOINT="${CATALOG_ENDPOINT%/}"
 REALM="${POLARIS_REALM:-POLARIS}"
 ROOT_CLIENT_ID="${POLARIS_ROOT_CLIENT_ID:-root}"
 ROOT_CLIENT_SECRET="${POLARIS_ROOT_CLIENT_SECRET:-s3cr3t}"
@@ -57,7 +62,7 @@ for _ in $(seq 1 90); do
       -u "${ROOT_CLIENT_ID}:${ROOT_CLIENT_SECRET}" \
       -d grant_type=client_credentials \
       -d scope=PRINCIPAL_ROLE:ALL \
-      "${CATALOG_ENDPOINT}/oauth/tokens" | jq -er .access_token
+      "${CATALOG_ENDPOINT}/v1/oauth/tokens" | jq -er .access_token
   )"; then
     break
   fi
@@ -75,9 +80,11 @@ cleanup_terraform_workdir
 terraform -chdir="${TEST_DIR}" init -input=false
 terraform -chdir="${TEST_DIR}" apply -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
+  -var "catalog_endpoint=${CATALOG_ENDPOINT}" \
   -var "realm=${REALM}" \
   -var "token=${TOKEN}"
 terraform -chdir="${TEST_DIR}" destroy -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
+  -var "catalog_endpoint=${CATALOG_ENDPOINT}" \
   -var "realm=${REALM}" \
   -var "token=${TOKEN}"
