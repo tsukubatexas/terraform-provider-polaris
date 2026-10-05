@@ -47,10 +47,54 @@ func checkStatus(status int, accepted map[int]struct{}, body string) error {
 
 func safeHTTPBody(body []byte) string {
 	const maxBody = 4096
+
+	if redacted, ok := redactJSONSecrets(body); ok {
+		body = redacted
+	}
+
 	if len(body) <= maxBody {
 		return string(body)
 	}
 	return string(body[:maxBody]) + "... [truncated]"
+}
+
+func redactJSONSecrets(body []byte) ([]byte, bool) {
+	var value any
+	if err := json.Unmarshal(body, &value); err != nil {
+		return nil, false
+	}
+	redactInPlace(value)
+	out, err := json.Marshal(value)
+	if err != nil {
+		return nil, false
+	}
+	return out, true
+}
+
+func redactInPlace(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for k, v := range typed {
+			if isSensitiveJSONKey(k) {
+				typed[k] = "[REDACTED]"
+				continue
+			}
+			redactInPlace(v)
+		}
+	case []any:
+		for i := range typed {
+			redactInPlace(typed[i])
+		}
+	}
+}
+
+func isSensitiveJSONKey(key string) bool {
+	switch strings.ToLower(key) {
+	case "access_token", "refresh_token", "id_token", "token", "client_secret", "password", "secret", "api_key", "apikey", "authorization":
+		return true
+	default:
+		return false
+	}
 }
 
 func stableID(parts ...string) string {
