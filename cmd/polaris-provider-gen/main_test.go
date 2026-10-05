@@ -70,6 +70,59 @@ func TestStableOperationIDNormalizesSeparators(t *testing.T) {
 	}
 }
 
+func TestParseSpecParsesHTTPMethodsAndTrimsSummary(t *testing.T) {
+	body := []byte(`
+openapi: 3.0.0
+info:
+  title: Example
+  version: 0.0.0
+paths:
+  /foo:
+    parameters: []
+    get:
+      operationId: listFoo
+      summary: "  List foo  "
+      tags: [Foo]
+  /bar:
+    post:
+      summary: Create bar
+      tags: [Bar]
+`)
+
+	ops, err := parseSpec("spec/example.yaml", body)
+	if err != nil {
+		t.Fatalf("parseSpec: %v", err)
+	}
+	if len(ops) != 2 {
+		t.Fatalf("operation count got %d want 2", len(ops))
+	}
+
+	byID := map[string]generatedOperation{}
+	for _, op := range ops {
+		byID[op.ID] = op
+	}
+
+	listFoo, ok := byID["listFoo"]
+	if !ok {
+		t.Fatalf("missing listFoo operation: %#v", ops)
+	}
+	if listFoo.Method != "GET" || listFoo.Path != "/foo" || listFoo.Spec != "spec/example.yaml" {
+		t.Fatalf("listFoo metadata mismatch: %#v", listFoo)
+	}
+	if listFoo.Summary != "List foo" {
+		t.Fatalf("listFoo summary got %q want %q", listFoo.Summary, "List foo")
+	}
+
+	createBarID := stableOperationID("spec/example.yaml", "POST", "/bar")
+	createBar, ok := byID[createBarID]
+	if !ok {
+		t.Fatalf("missing create bar operation id %q: %#v", createBarID, ops)
+	}
+	if createBar.Method != "POST" || createBar.Path != "/bar" {
+		t.Fatalf("createBar metadata mismatch: %#v", createBar)
+	}
+}
+
 func TestWriteDocsIncludesGeneratedOperationMetadata(t *testing.T) {
 	tmp := t.TempDir()
 	filename := filepath.Join(tmp, "generated-operations.md")
