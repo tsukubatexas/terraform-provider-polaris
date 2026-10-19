@@ -4,11 +4,16 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
+if ! command -v go >/dev/null 2>&1 && [[ -x /usr/local/go/bin/go ]]; then
+  export PATH="/usr/local/go/bin:${PATH}"
+fi
+
 ENDPOINT="${POLARIS_ENDPOINT:-http://localhost:8181/api/management/v1}"
 MANAGEMENT_SEGMENT="/api/management"
 CATALOG_SEGMENT="/api/catalog"
 DEFAULT_CATALOG_ENDPOINT="${ENDPOINT/${MANAGEMENT_SEGMENT}/${CATALOG_SEGMENT}}"
 CATALOG_ENDPOINT="${POLARIS_CATALOG_ENDPOINT:-${DEFAULT_CATALOG_ENDPOINT}}"
+CATALOG_PROVIDER_ENDPOINT="${POLARIS_CATALOG_PROVIDER_ENDPOINT:-${CATALOG_ENDPOINT%/v1}}"
 REALM="${POLARIS_REALM:-POLARIS}"
 ROOT_CLIENT_ID="${POLARIS_ROOT_CLIENT_ID:-root}"
 ROOT_CLIENT_SECRET="${POLARIS_ROOT_CLIENT_SECRET:-s3cr3t}"
@@ -50,6 +55,10 @@ cp dist/terraform-provider-polaris "${PLUGIN_DIR}/terraform-provider-polaris_v${
 
 echo "Waiting for Polaris at ${CATALOG_ENDPOINT}."
 TOKEN=""
+OAUTH_TOKEN_URL="${CATALOG_ENDPOINT}/oauth/tokens"
+if [[ "${CATALOG_ENDPOINT}" != */v1 ]]; then
+  OAUTH_TOKEN_URL="${CATALOG_ENDPOINT}/v1/oauth/tokens"
+fi
 for _ in $(seq 1 90); do
   if TOKEN="$(
     curl -fsS \
@@ -57,7 +66,7 @@ for _ in $(seq 1 90); do
       -u "${ROOT_CLIENT_ID}:${ROOT_CLIENT_SECRET}" \
       -d grant_type=client_credentials \
       -d scope=PRINCIPAL_ROLE:ALL \
-      "${CATALOG_ENDPOINT}/oauth/tokens" | jq -er .access_token
+      "${OAUTH_TOKEN_URL}" | jq -er .access_token
   )"; then
     break
   fi
@@ -75,9 +84,11 @@ cleanup_terraform_workdir
 terraform -chdir="${TEST_DIR}" init -input=false
 terraform -chdir="${TEST_DIR}" apply -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
+  -var "catalog_endpoint=${CATALOG_PROVIDER_ENDPOINT}" \
   -var "realm=${REALM}" \
   -var "token=${TOKEN}"
 terraform -chdir="${TEST_DIR}" destroy -input=false -auto-approve \
   -var "endpoint=${ENDPOINT}" \
+  -var "catalog_endpoint=${CATALOG_PROVIDER_ENDPOINT}" \
   -var "realm=${REALM}" \
   -var "token=${TOKEN}"
