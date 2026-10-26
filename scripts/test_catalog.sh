@@ -73,11 +73,12 @@ cleanup_catalog
 cleanup_terraform_workdir
 
 terraform -chdir="${TEST_DIR}" init -input=false
-terraform -chdir="${TEST_DIR}" apply -input=false -auto-approve \
-  -var "endpoint=${ENDPOINT}" \
-  -var "realm=${REALM}" \
-  -var "token=${TOKEN}"
-terraform -chdir="${TEST_DIR}" destroy -input=false -auto-approve \
-  -var "endpoint=${ENDPOINT}" \
-  -var "realm=${REALM}" \
-  -var "token=${TOKEN}"
+
+export TF_VAR_endpoint="${ENDPOINT}"
+export TF_VAR_realm="${REALM}"
+export TF_VAR_token="${TOKEN}"
+
+terraform -chdir="${TEST_DIR}" apply -input=false -auto-approve
+terraform -chdir="${TEST_DIR}" destroy -input=false -auto-approve
+
+unset TF_VAR_token
