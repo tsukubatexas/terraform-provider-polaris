@@ -123,3 +123,59 @@ func TestNewClientRejectsUnsupportedEndpointScheme(t *testing.T) {
 		t.Fatal("expected unsupported endpoint scheme error")
 	}
 }
+
+func TestClientRejectsLargeResponseBodies(t *testing.T) {
+	oldLimit := maxHTTPResponseBytes
+	maxHTTPResponseBytes = 64
+	t.Cleanup(func() { maxHTTPResponseBytes = oldLimit })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", 256)))
+	}))
+	defer server.Close()
+
+	client, err := newClient(clientConfig{Endpoint: server.URL, Token: "token"})
+	if err != nil {
+		t.Fatalf("newClient: %v", err)
+	}
+
+	_, err = client.do(context.Background(), "GET", "/catalogs", nil, nil, nil, "")
+	if err == nil {
+		t.Fatal("expected large body error")
+	}
+	if !strings.Contains(err.Error(), "response body exceeded") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestClientRejectsLargeOAuthTokenBodies(t *testing.T) {
+	oldLimit := maxHTTPResponseBytes
+	maxHTTPResponseBytes = 64
+	t.Cleanup(func() { maxHTTPResponseBytes = oldLimit })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/oauth/token" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_, _ = w.Write([]byte(strings.Repeat("x", 256)))
+	}))
+	defer server.Close()
+
+	client, err := newClient(clientConfig{
+		Endpoint:      server.URL,
+		ClientID:      "client-id",
+		ClientSecret:  "client-secret",
+		OAuthTokenURL: server.URL + "/oauth/token",
+	})
+	if err != nil {
+		t.Fatalf("newClient: %v", err)
+	}
+
+	_, err = client.do(context.Background(), "GET", "/catalogs", nil, nil, nil, "")
+	if err == nil {
+		t.Fatal("expected oauth token large body error")
+	}
+	if !strings.Contains(err.Error(), "read oauth token response body") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}

@@ -19,8 +19,10 @@ import (
 )
 
 var (
-	httpClient      = &http.Client{Timeout: 30 * time.Second}
-	httpRetryDelays = []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
+	httpClient            = &http.Client{Timeout: 30 * time.Second}
+	httpRetryDelays       = []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
+	maxGitHubBody   int64 = 2 << 20
+	maxSpecBody     int64 = 25 << 20
 )
 
 var defaultSpecs = []specSource{
@@ -65,6 +67,20 @@ type generatedOperation struct {
 	Path    string
 	Summary string
 	Tags    []string
+}
+
+func readBodyLimited(r io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("invalid body read limit %d", limit)
+	}
+	body, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return body[:limit], fmt.Errorf("response body exceeded %d bytes", limit)
+	}
+	return body, nil
 }
 
 func main() {
@@ -136,7 +152,7 @@ func latestRelease() (*releaseResponse, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := readBodyLimited(resp.Body, maxGitHubBody)
 		return nil, fmt.Errorf("GitHub release lookup failed with HTTP %d: %s", resp.StatusCode, string(body))
 	}
 	var release releaseResponse
@@ -165,10 +181,10 @@ func fetchSpec(tag string, source specSource) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := readBodyLimited(resp.Body, maxGitHubBody)
 		return nil, false, fmt.Errorf("fetch %s failed with HTTP %d: %s", specURL, resp.StatusCode, string(body))
 	}
-	body, err := io.ReadAll(resp.Body)
+	body, err := readBodyLimited(resp.Body, maxSpecBody)
 	return body, true, err
 }
 

@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+var maxHTTPResponseBytes int64 = 8 << 20
+
 type clientConfig struct {
 	Endpoint              string
 	Realm                 string
@@ -41,6 +43,20 @@ type Client struct {
 type response struct {
 	StatusCode int
 	Body       string
+}
+
+func readBodyLimited(r io.Reader, limit int64) ([]byte, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("invalid body read limit %d", limit)
+	}
+	body, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(body)) > limit {
+		return body[:limit], fmt.Errorf("response body exceeded %d bytes", limit)
+	}
+	return body, nil
 }
 
 func newClient(cfg clientConfig) (*Client, error) {
@@ -122,9 +138,9 @@ func (c *Client) do(ctx context.Context, method, pathTemplate string, pathParams
 		return nil, err
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := readBodyLimited(resp.Body, maxHTTPResponseBytes)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read response body: %w: %s", err, safeHTTPBody(respBody))
 	}
 	return &response{StatusCode: resp.StatusCode, Body: string(respBody)}, nil
 }
@@ -161,9 +177,9 @@ func (c *Client) ensureToken(ctx context.Context) error {
 		return err
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := readBodyLimited(resp.Body, maxHTTPResponseBytes)
 	if err != nil {
-		return err
+		return fmt.Errorf("read oauth token response body: %w: %s", err, safeHTTPBody(respBody))
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("oauth token request failed with HTTP %d: %s", resp.StatusCode, safeHTTPBody(respBody))
