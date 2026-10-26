@@ -25,6 +25,8 @@ run_checks() {
     make fmt &&
     make test &&
     make build &&
+    scripts/check_agent_runtime_pins.sh &&
+    scripts/check_adr_updates.sh &&
     bash -n scripts/*.sh
 }
 

@@ -198,6 +198,45 @@ func TestDoHTTPRequestsRetriesTransientStatus(t *testing.T) {
 	}
 }
 
+func TestReadBodyLimitedRejectsOversizedBodies(t *testing.T) {
+	body, err := readBodyLimited(strings.NewReader(strings.Repeat("a", 10)), 5)
+	if err == nil {
+		t.Fatal("expected oversized body error")
+	}
+	if string(body) != "aaaaa" {
+		t.Fatalf("body got %q", string(body))
+	}
+}
+
+func TestWriteOperationsIsDeterministic(t *testing.T) {
+	tmp := t.TempDir()
+	filename1 := filepath.Join(tmp, "ops1.go")
+	filename2 := filepath.Join(tmp, "ops2.go")
+	ops := map[string]generatedOperation{
+		"b": {ID: "b", Spec: "spec/a.yml", Method: "GET", Path: "/b"},
+		"a": {ID: "a", Spec: "spec/a.yml", Method: "GET", Path: "/a"},
+	}
+
+	if err := writeOperations(filename1, "apache-polaris-test", ops); err != nil {
+		t.Fatalf("writeOperations: %v", err)
+	}
+	if err := writeOperations(filename2, "apache-polaris-test", ops); err != nil {
+		t.Fatalf("writeOperations: %v", err)
+	}
+
+	body1, err := os.ReadFile(filename1)
+	if err != nil {
+		t.Fatalf("read file 1: %v", err)
+	}
+	body2, err := os.ReadFile(filename2)
+	if err != nil {
+		t.Fatalf("read file 2: %v", err)
+	}
+	if string(body1) != string(body2) {
+		t.Fatalf("generated output differs for same inputs:\n%s\n---\n%s", string(body1), string(body2))
+	}
+}
+
 func TestGeneratedRegistryMatchesCachedOpenAPISpecs(t *testing.T) {
 	root := repoRoot(t)
 	tag := generated.ReleaseTag
