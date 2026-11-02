@@ -41,6 +41,7 @@ func restResource() *schema.Resource {
 			"headers": {
 				Type:        schema.TypeMap,
 				Optional:    true,
+				Sensitive:   true,
 				Elem:        &schema.Schema{Type: schema.TypeString},
 				Description: "Additional HTTP headers.",
 			},

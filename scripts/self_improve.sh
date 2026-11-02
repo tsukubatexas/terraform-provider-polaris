@@ -25,7 +25,12 @@ run_checks() {
     make fmt &&
     make test &&
     make build &&
-    bash -n scripts/*.sh
+    bash -n scripts/*.sh &&
+    scripts/check_release_please_config.sh &&
+    scripts/check_actions_pinned.sh &&
+    scripts/check_agent_runtime_pins.sh &&
+    scripts/check_adr_updates.sh &&
+    scripts/check_static_coverage.sh
 }
 
 write_prompt() {
