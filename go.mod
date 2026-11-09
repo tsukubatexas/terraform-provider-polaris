@@ -2,6 +2,8 @@ module github.com/tsukubatexas/terraform-provider-polaris
 
 go 1.24.0
 
+toolchain go1.24.13
+
 require (
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.37.0
 	gopkg.in/yaml.v3 v3.0.1
